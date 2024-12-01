@@ -1,3 +1,49 @@
 node_modules/
 dist/
 *.tsbuildinfo
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Data directory
+data/
+
+# Docker
+docker-compose.override.yml
+
+# Build and dependencies
+node_modules/
+**/dist/
+*.tsbuildinfo
+.DS_Store
+
+# Documentation and logs
+*.md
+/*.md
+/*.log
+/*.log*
+
+# Temporary and backup files
+/*.pid
+/*.bak
+/*.tmp
+/*.temp
+/*.swp
+/*~
+/.DS_Store
+Thumbs.db
+
+# Environment and local config
+/.env
+/.env.*
+!/.env.example
+/*.local
+/*.local.*
+
+# IDE specific
+/.idea/
+/.vscode/
+*.sublime-*
+*.code-workspace

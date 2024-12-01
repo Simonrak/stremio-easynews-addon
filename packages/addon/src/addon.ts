@@ -1,4 +1,10 @@
-import { Cache, MetaDetail, MetaVideo, Stream } from 'stremio-addon-sdk';
+import {
+  Cache,
+  ContentType,
+  MetaDetail,
+  MetaVideo,
+  Stream,
+} from 'stremio-addon-sdk';
 import addonBuilder from 'stremio-addon-sdk/src/builder';
 import landingTemplate from 'stremio-addon-sdk/src/landingTemplate';
 import { catalog, manifest } from './manifest';
@@ -20,6 +26,19 @@ import {
 import { EasynewsAPI, SearchOptions, createBasic } from '@easynews/api';
 import { publicMetaProvider } from './meta';
 import { fromHumanReadable, toDirection } from './sort-option';
+
+// Extend the original Config type
+interface ExtendedConfig {
+  username: string;
+  password: string;
+  proxyPassword?: string;
+  sort1?: string;
+  sort1Direction?: string;
+  sort2?: string;
+  sort2Direction?: string;
+  sort3?: string;
+  sort3Direction?: string;
+}
 
 const builder = new addonBuilder(manifest);
 
@@ -112,11 +131,42 @@ builder.defineMetaHandler(
 );
 
 builder.defineStreamHandler(
-  async ({ id, type, config: { username, password, ...options } }) => {
+  async ({
+    id,
+    type,
+    config,
+  }: {
+    id: string;
+    type: ContentType;
+    config: ExtendedConfig;
+  }) => {
     try {
       if (!id.startsWith('tt')) {
         return { streams: [] };
       }
+
+      let username = config.username;
+      let password = config.password;
+
+      if (process.env.PROXY_ENABLED === 'true') {
+        const requiredProxyPassword = process.env.PROXY_PASSWORD;
+        if (!requiredProxyPassword) {
+          throw new Error('Proxy password not configured on server');
+        }
+        if (config.proxyPassword !== requiredProxyPassword) {
+          throw new Error('Invalid proxy password');
+        }
+
+        // Use default credentials in proxy mode
+        username = process.env.DEFAULT_USERNAME || '';
+        password = process.env.DEFAULT_PASSWORD || '';
+
+        if (!username || !password) {
+          throw new Error('Default credentials not configured on server');
+        }
+      }
+
+      const { proxyPassword, ...options } = config;
 
       // Sort options are profiled as human-readable strings in the manifest.
       // so we need to convert them back to their internal representation
