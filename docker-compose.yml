@@ -1,0 +1,61 @@
+volumes:
+  easynews_logs:
+    name: easynews_logs
+    external: true
+
+networks:
+  app_network:
+    name: app_network
+    external: true
+
+services:
+  addon:
+    build:
+      context: .
+    image: stremio-easynews-addon:latest
+    container_name: stremio-easynews-addon
+    ports:
+      - '8481:1337'
+    env_file:
+      - .env
+    volumes:
+      - easynews_logs:/var/log/easynews
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+        mode: 'non-blocking'
+    networks:
+      app_network:
+        ipv4_address: 192.168.0.29
+    restart: always
+    depends_on:
+      - warp
+
+  warp:
+    image: caomingjun/warp:latest
+    container_name: warp_easynews
+    ports:
+      - '1085:1085/tcp'
+      - '1085:1085/udp'
+      - 9102:9101
+      - 27018:27017
+      - 6479:6379
+      - 3020:3000
+      - 9496:9696
+    environment:
+      - WARP_SLEEP=2
+      - TZ=Europe/Stockholm
+      - GOST_ARGS=-L=socks5://:1085
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
+    networks:
+      app_network:
+        ipv4_address: 192.168.0.28
+    volumes:
+      - ./data:/var/lib/cloudflare-warp
+    restart: always
