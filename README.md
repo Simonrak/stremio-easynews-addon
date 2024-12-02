@@ -96,6 +96,73 @@ Navigate to `http://localhost:1337/` in your browser to verify that the addon is
 $ PORT=8080 npm run start:addon
 ```
 
+### Proxy Mode Configuration
+
+The addon supports a proxy mode that provides enhanced security and streaming capabilities. When enabled, it:
+
+1. Protects your Easynews credentials
+2. Provides better streaming performance
+3. Handles video formats more reliably
+
+To enable proxy mode:
+
+1. Set the following environment variables:
+
+```bash
+PROXY_ENABLED=true
+PROXY_URL=127.0.0.1        # WARP proxy URL
+PROXY_PORT=1085            # WARP proxy port
+MIDDLEWARE_PORT=7337       # Stream handling port
+ADDON_DOMAIN=your.domain.com
+```
+
+2. Configure nginx as a reverse proxy. Create a configuration file (e.g., `/etc/nginx/conf.d/stremio-easynews.conf`):
+
+```nginx
+# Main addon server
+upstream stremio-easynews-addon {
+    server 127.0.0.1:1337;  # Match PORT in .env
+}
+
+# Stream handling server
+upstream stremio-easynews-stream {
+    server 127.0.0.1:7337;  # Match MIDDLEWARE_PORT in .env
+}
+
+server {
+    listen 443 ssl;
+    server_name your.domain.com;  # Match ADDON_DOMAIN in .env
+
+    # SSL configuration
+    ssl_certificate /path/to/fullchain.pem;
+    ssl_certificate_key /path/to/privkey.pem;
+
+    # Video streaming endpoint - REQUIRED
+    location ~ ^/[a-zA-Z0-9]+/video {
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_max_temp_file_size 0;
+
+        proxy_pass http://stremio-easynews-stream;
+    }
+
+    # Main addon endpoint
+    location / {
+        proxy_pass http://stremio-easynews-addon;
+    }
+}
+```
+
+Key points for nginx configuration:
+
+- SSL is required for secure streaming
+- The video streaming location block must match the token pattern
+- Buffering must be disabled for proper streaming
+- Both upstream servers must match your environment variables
+
+A complete example configuration is available in `nginx.conf.example`.
+
 ---
 
 Looking for additional hosting options? Let us know which platform(s) you'd like to see supported by [creating an issue](https://github.com/sleeyax/stremio-easynews-addon/issues/new).
