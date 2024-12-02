@@ -1,0 +1,78 @@
+upstream stremio-easynews-addon {
+    server 127.0.0.1:1337;  # Main addon server (match PORT in .env)
+}
+
+upstream stremio-easynews-stream {
+    server 127.0.0.1:7337;  # Stream server (match MIDDLEWARE_PORT in .env)
+}
+
+server {
+    listen 80;
+    server_name your.domain.com;  # Replace with your domain
+
+    # SSL redirect
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name your.domain.com;  # Replace with your domain
+
+    # Adjust these paths to your SSL certificate locations
+    ssl_certificate /path/to/your/fullchain.pem;
+    ssl_certificate_key /path/to/your/privkey.pem;
+
+    # Security headers (recommended)
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+
+    # Stream handling - REQUIRED for video streaming
+    location ~ ^/[a-zA-Z0-9]+/video {
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "keep-alive";
+        
+        # Video streaming settings - DO NOT CHANGE
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_max_temp_file_size 0;
+        
+        # Timeouts (adjust if needed)
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+
+        # Error handling
+        proxy_intercept_errors on;
+        error_page 502 503 504 = @fallback_error;
+
+        # Stream server
+        proxy_pass http://stremio-easynews-stream;
+    }
+
+    # Error handling
+    location @fallback_error {
+        add_header Content-Type text/plain;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        return 502 "Stream proxy error. Please try again.";
+    }
+
+    # Main addon endpoint - REQUIRED
+    location / {
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        proxy_pass http://stremio-easynews-addon;
+    }
+}
