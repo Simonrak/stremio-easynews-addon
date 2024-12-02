@@ -30,10 +30,11 @@ export const manifest: Manifest = {
   ],
   types: ['movie', 'series', 'tv'],
   name: 'Easynews+',
-  background:
-    'https://images.pexels.com/photos/518543/pexels-photo-518543.jpeg',
+  background: 'https://images.pexels.com/photos/518543/pexels-photo-518543.jpeg',
   logo: 'https://pbs.twimg.com/profile_images/479627852757733376/8v9zH7Yo_400x400.jpeg',
   behaviorHints: { configurable: true, configurationRequired: true },
+  contactEmail: 'easynews@stremio.com',
+  idPrefixes: ['tt'],
   config:
     process.env.PROXY_ENABLED === 'true'
       ? [

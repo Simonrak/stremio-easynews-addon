@@ -7,6 +7,8 @@ export class EasynewsAPI {
   private agent: any;
   private readonly timeout: number;
   private readonly userAgent: string;
+  private readonly username: string;
+  private readonly password: string;
 
   constructor(options: { username: string; password: string }) {
     if (!options) {
@@ -15,12 +17,11 @@ export class EasynewsAPI {
 
     console.log('Initializing EasynewsAPI', { username: options.username });
 
+    this.username = options.username;
+    this.password = options.password;
     this.headers = new Headers();
-    const basic = createBasic(options.username, options.password);
-    this.headers.append('Authorization', basic);
     this.timeout = parseInt(process.env.API_TIMEOUT || '20000');
     this.userAgent = process.env.API_USER_AGENT || 'curl/7.64.0';
-    this.headers.append('User-Agent', this.userAgent);
 
     if (process.env.PROXY_ENABLED === 'true') {
       this.initializeProxy();
@@ -34,7 +35,11 @@ export class EasynewsAPI {
   private initializeProxy() {
     try {
       const { SocksProxyAgent } = require('socks-proxy-agent');
-      const proxyUrl = `socks5://${process.env.PROXY_URL || 'warp'}:${process.env.PROXY_PORT || '1085'}`;
+
+      // Construct proxy URL with proper format
+      const proxyHost = process.env.PROXY_URL || '127.0.0.1';
+      const proxyPort = process.env.PROXY_PORT || '1085';
+      const proxyUrl = `socks5://${proxyHost}:${proxyPort}`;
       console.log('Initializing proxy with URL', { proxyUrl });
 
       this.agent = new SocksProxyAgent(proxyUrl);
@@ -46,10 +51,25 @@ export class EasynewsAPI {
   }
 
   private async fetch(url: string, options: RequestInit = {}) {
-    const headers = new Headers(this.headers);
+    const headers = new Headers();
+
+    // Add User-Agent header
+    headers.append('User-Agent', this.userAgent);
+
+    // Only add Authorization header for actual Easynews requests
+    if (url.includes('members.easynews.com')) {
+      headers.append(
+        'Authorization',
+        createBasic(this.username, this.password)
+      );
+    }
+
     if (options.headers) {
       for (const [key, value] of Object.entries(options.headers)) {
-        headers.append(key, value);
+        if (key.toLowerCase() !== 'authorization') {
+          // Skip any auth headers from options
+          headers.append(key, value);
+        }
       }
     }
 

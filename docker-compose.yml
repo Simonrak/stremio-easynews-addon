@@ -16,6 +16,7 @@ services:
     container_name: stremio-easynews-addon
     ports:
       - '8481:1337'
+      - '7337:7337'
     env_file:
       - .env
     volumes:
