@@ -10,7 +10,6 @@ import landingTemplate from 'stremio-addon-sdk/src/landingTemplate';
 import { catalog, manifest } from './manifest';
 import {
   buildSearchQuery,
-  createStreamAuth,
   createStreamPath,
   createStreamUrl,
   createThumbnailUrl,
@@ -26,6 +25,7 @@ import {
 import { EasynewsAPI, SearchOptions, createBasic } from '@easynews/api';
 import { publicMetaProvider } from './meta';
 import { fromHumanReadable, toDirection } from './sort-option';
+import { generateStreamToken } from './proxy';
 
 // Extend the original Config type
 interface ExtendedConfig {
@@ -98,7 +98,7 @@ builder.defineMetaHandler(
               fileExtension: getFileExtension(file),
               duration: getDuration(file),
               size: getSize(file),
-              url: `${createStreamUrl(res)}/${createStreamPath(file)}|${createStreamAuth(username, password)}`,
+              url: `${createStreamUrl(res)}/${createStreamPath(file)}`,
               videoSize: file.rawSize,
             }),
           ],
@@ -282,6 +282,14 @@ function mapStream({
 }): Stream {
   const quality = getQuality(title, fullResolution);
 
+  // When proxy is enabled, generate a secure token for the stream
+  let streamUrl = url;
+  if (process.env.PROXY_ENABLED === 'true') {
+    const token = generateStreamToken(url, username, password);
+    const domain = process.env.ADDON_DOMAIN || 'easynews.simon.casino';
+    streamUrl = `https://${domain}/${token}/video`;
+  }
+
   return {
     name: `Easynews+${quality ? `\n${quality}` : ''}`,
     description: [
@@ -289,15 +297,18 @@ function mapStream({
       `🕛 ${duration ?? 'unknown duration'}`,
       `📦 ${size ?? 'unknown size'}`,
     ].join('\n'),
-    url: url,
+    url: streamUrl,
     behaviorHints: {
-      notWebReady: true,
-      proxyHeaders: {
-        request: {
-          'User-Agent': 'Stremio',
-          Authorization: createBasic(username, password),
-        },
-      },
+      notWebReady: false, // Change to false since we're handling the stream
+      proxyHeaders:
+        process.env.PROXY_ENABLED !== 'true'
+          ? {
+              request: {
+                'User-Agent': 'Stremio',
+                Authorization: createBasic(username, password),
+              },
+            }
+          : undefined,
       fileName: title,
       videoSize,
     } as Stream['behaviorHints'],

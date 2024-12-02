@@ -65,9 +65,7 @@ export function createStreamPath(file: FileData) {
   return `${postHash}${ext}/${postTitle}${ext}`;
 }
 
-export function createStreamAuth(username: string, password: string) {
-  return `Authorization=${encodeURIComponent(username + ':' + password)}`;
-}
+// Removed createStreamAuth function as we'll handle auth via headers
 
 export function getFileExtension(file: FileData) {
   return file['2'] ?? '';
