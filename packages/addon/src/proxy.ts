@@ -25,31 +25,50 @@ const streamTokens = new Map<string, StreamData>();
 
 // Clean up expired tokens periodically (1 hour expiry)
 const EXPIRY_TIME = +(process.env.STREAM_TOKEN_EXPIRY || 3600000); // 1 hour
-const CLEANUP_INTERVAL = Math.min(EXPIRY_TIME / 2, 300000); // Run every 5 minutes or when half the expiry time has passed
-
-// Keep track of token usage
-const tokenLastUsed = new Map<string, number>();
+const CLEANUP_INTERVAL = 600000; // Run every 600s (10 minutes)
+const MAX_TOKENS = 50; // Maximum number of tokens to keep
 
 setInterval(() => {
   const now = Date.now();
   let cleanedCount = 0;
+
+  // First remove expired tokens
   for (const [token, data] of streamTokens.entries()) {
-    const lastUsed = tokenLastUsed.get(token) || data.timestamp;
-    if (now - lastUsed > EXPIRY_TIME) {
+    if (now - data.timestamp > EXPIRY_TIME) {
       streamTokens.delete(token);
       tokenLastUsed.delete(token);
       cleanedCount++;
     }
   }
+
+  // If we still have too many tokens, remove oldest ones
+  if (streamTokens.size > MAX_TOKENS) {
+    const tokens = Array.from(streamTokens.entries()).sort(
+      (a, b) => a[1].timestamp - b[1].timestamp
+    );
+
+    const toDelete = tokens.slice(0, streamTokens.size - MAX_TOKENS);
+    toDelete.forEach(([token]) => {
+      streamTokens.delete(token);
+      tokenLastUsed.delete(token);
+      cleanedCount++;
+    });
+  }
+
   if (cleanedCount > 0) {
-    console.log('Cleaned up expired tokens:', {
+    const uniqueVideos = new Set(
+      Array.from(streamTokens.values()).map((data) => data.url)
+    ).size;
+    console.log('Cleaned up tokens:', {
       cleanedCount,
       remaining: streamTokens.size,
-      oldestToken: Array.from(streamTokens.entries())[0],
-      newestToken: Array.from(streamTokens.entries())[streamTokens.size - 1],
+      uniqueVideos,
     });
   }
 }, CLEANUP_INTERVAL);
+
+// Keep track of token usage
+const tokenLastUsed = new Map<string, number>();
 
 // Generate a secure token for a stream
 export function generateStreamToken(
@@ -68,21 +87,23 @@ export function generateStreamToken(
     timestamp: Date.now(),
   };
 
-  console.log('Generating stream token:', {
-    token,
-    url,
-    timestamp: new Date().toISOString(),
-  });
-
   streamTokens.set(token, streamData);
   tokenLastUsed.set(token, Date.now());
 
-  // Log current tokens
-  console.log('Current tokens:', {
-    count: streamTokens.size,
-    tokens: Array.from(streamTokens.keys()),
-    newest: token,
-  });
+  // Get unique video count
+  const uniqueVideos = new Set(
+    Array.from(streamTokens.values()).map((data) => data.url)
+  ).size;
+
+  // Only log first token for each batch
+  if (uniqueVideos === 1) {
+    console.log('Started generating tokens');
+  } else if (uniqueVideos % 10 === 0) {
+    console.log('Current tokens:', {
+      count: streamTokens.size,
+      uniqueVideos,
+    });
+  }
 
   return token;
 }
